@@ -1,26 +1,30 @@
 import pandas as pd
 from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
+
 from sklearn.metrics import mean_squared_error, r2_score
 
 # Define the list of filenames
 filenames = [
+    "2017_6.csv", "2017_9.csv", "2017_11.csv",
     "2018_6.csv", "2018_9.csv", "2018_11.csv",
     "2019_6.csv", "2019_9.csv", "2019_11.csv",
     "2020_6.csv", "2020_9.csv", "2020_11.csv",
     "2021_6.csv", "2021_9.csv", "2021_11.csv",
-    "2022_6.csv", "2022_9.csv", "2022_11.csv"
+    "2022_6.csv", "2022_9.csv", "2022_11.csv",
+    "2023_6.csv", "2023_9.csv", "2023_11.csv",
+    "2024_6.csv", "2024_9.csv", "2024_11.csv",
+
+
 ]
 
 # Create a dictionary to hold the dataframes
 dataframes = {}
-standard_max={}
-standard_min={}
-
+standard_max = {}
+standard_min = {}
 
 # Load each file into the dictionary with its filename as the key
 for filename in filenames:
-    max_and_min=[]
+    max_and_min = []
     var_name = filename.split('.')[0]  # Use filename without extension as variable name
     df = pd.read_csv(filename, encoding='utf-8')
     standard_max[var_name] = df['standard_score'].max()
@@ -29,6 +33,8 @@ for filename in filenames:
 # Prepare the data for training
 train_data = []
 train_target = []
+test_data = []
+test_target = []
 
 # Determine the global max and min standard scores
 global_max_score = min(standard_max.values())
@@ -36,12 +42,15 @@ global_min_score = max(standard_min.values())
 
 
 # Function to normalize scores
-def normalize_score(df, global_min, global_max,decimals=0):
+def normalize_score(df, global_min, global_max, decimals=0):
     local_min = df['standard_score'].min()
     local_max = df['standard_score'].max()
-    df['normalized_score'] = (df['standard_score'] - local_min) / (local_max - local_min) * (global_max - global_min) + global_min
+    df['normalized_score'] = (df['standard_score'] - local_min) / (local_max - local_min) * (
+                global_max - global_min) + global_min
     df['normalized_score'] = df['normalized_score'].round(decimals)
-
+    # print(key)
+    # print(df)
+    #여기까지는 값이 정상적
     return df
 
 
@@ -51,66 +60,74 @@ for key in dataframes.keys():
     normalized_df = normalize_score(df, global_min_score, global_max_score)
     dataframes[key] = normalized_df
 
+    # Convert male and female columns to numeric, removing commas
+    normalized_df['male'] = pd.to_numeric(normalized_df['male'].astype(str).str.replace(',', ''), errors='coerce')
+    normalized_df['female'] = pd.to_numeric(normalized_df['female'].astype(str).str.replace(',', ''), errors='coerce')
+
     # Group by normalized_score and sum male and female columns
     grouped_df = normalized_df.groupby('normalized_score', as_index=False).agg({
         'male': 'sum',
         'female': 'sum'
     })
 
+    # print(key)
+    # print(grouped_df)
+    ##여기서 값 이상함
     # Create a DataFrame with all possible normalized_scores in the range
     all_scores = pd.DataFrame({'normalized_score': range(global_min_score, global_max_score + 1)})
-
     # Merge the grouped_df with all_scores to fill missing scores with 0 values
     complete_df = pd.merge(all_scores, grouped_df, on='normalized_score', how='left').fillna(0)
-
+    # Ensure male and female columns are integers
+    # Ensure male and female columns are integers
+    complete_df['male'] = complete_df['male'].astype(str).str.replace(',', '').astype(float).round().astype(int)
+    complete_df['female'] = complete_df['female'].astype(str).str.replace(',', '').astype(float).round().astype(int)
 
     # Update the dataframe in the dictionary
     dataframes[key] = complete_df
+    # print(key)
+    # print(complete_df)
+#
+# Loop through each year and collect the data
+for year in range(2017, 2022):
+    june_data = dataframes[f'{year}_6']
+    september_data = dataframes[f'{year}_9']
+    november_data = dataframes[f'{year}_11']
 
-    # Print to verify
-    print(f'\nDataFrame: {key}')
-    print(complete_df)
+    # Merge June and September data
+    merged_data = pd.merge(june_data, september_data, on='normalized_score', suffixes=('_june', '_sept'))
 
-#
-# # Loop through each year and collect the data
-# for year in range(2018, 2023):
-#     june_data = dataframes[f'{year}_6']
-#     september_data = dataframes[f'{year}_9']
-#     november_data = dataframes[f'{year}_11']
-#
-#     # Merge June and September data
-#     merged_data = pd.merge(june_data, september_data, on='standard_score', suffixes=('_june', '_sept'))
-#
-#     # Append the features and target data
-#     train_data.append(merged_data[['male_june', 'female_june', 'male_sept', 'female_sept']])
-#     train_target.append(november_data[['male', 'female']])
-#
-# # Concatenate all years' data
-# X_train = pd.concat(train_data)
-# y_train = pd.concat(train_target)
-# print(X_train)
-# print(y_train)
-#
-#
-#
-# print("------------------------------------------")
-#
-# print(standard_max)
-# print(standard_min)
-#
-# # Split the data into training and test sets
-# X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
-#
-# # Create and train the model
-# model = LinearRegression()
-# model.fit(X_train, y_train)
-#
-# # Make predictions
-# y_pred = model.predict(X_test)
-#
-# # Evaluate the model
-# mse = mean_squared_error(y_test, y_pred)
-# r2 = r2_score(y_test, y_pred)
-#
-# print(f'Mean Squared Error: {mse}')
-# print(f'R^2 Score: {r2}')
+    # Split into training and testing sets
+    if year == 2021:
+        test_data.append(merged_data[['male_june', 'female_june', 'male_sept', 'female_sept']])
+        test_target.append(november_data[['male', 'female']])
+    else:
+        train_data.append(merged_data[['male_june', 'female_june', 'male_sept', 'female_sept']])
+        train_target.append(november_data[['male', 'female']])
+
+# Concatenate all years' data
+X_train = pd.concat(train_data)
+y_train = pd.concat(train_target)
+X_test = pd.concat(test_data)
+y_test = pd.concat(test_target)
+
+# Print to verify
+print("Training data:")
+print(X_train)
+print(y_train)
+print("Testing data:")
+print(X_test)
+print(y_test)
+
+# Create and train the model
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f'Mean Squared Error: {mse}')
+print(f'R^2 Score: {r2}')
