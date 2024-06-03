@@ -1,9 +1,10 @@
 import pandas as pd
+
 from sklearn.linear_model import LinearRegression
 
 from sklearn.metrics import mean_squared_error, r2_score
 
-# Define the list of filenames
+# csv 파일명 저장
 filenames = [
     "2017_6.csv", "2017_9.csv", "2017_11.csv",
     "2018_6.csv", "2018_9.csv", "2018_11.csv",
@@ -13,48 +14,43 @@ filenames = [
     "2022_6.csv", "2022_9.csv", "2022_11.csv",
     "2023_6.csv", "2023_9.csv", "2023_11.csv",
     "2024_6.csv", "2024_9.csv", "2024_11.csv",
-
-
 ]
 
 # Create a dictionary to hold the dataframes
-dataframes = {}
-standard_max = {}
-standard_min = {}
+dataframes = {} #key 값 2017_6의 형태로 데이터 저장
+standard_max = {} # 각 시험마다 최댓값 저장(정규화에 사용)
+standard_min = {} # 각 시험마다 최솟값 저장(정규화에 사용)
 
-# Load each file into the dictionary with its filename as the key
+# key 값마다 dataframe 저장
 for filename in filenames:
     max_and_min = []
-    var_name = filename.split('.')[0]  # Use filename without extension as variable name
+    var_name = filename.split('.')[0]  # 2017_6 형태로 추출
     df = pd.read_csv(filename, encoding='utf-8')
     standard_max[var_name] = df['standard_score'].max()
     standard_min[var_name] = df['standard_score'].min()
     dataframes[var_name] = df
-# Prepare the data for training
+# train data, test data 추출
 train_data = []
 train_target = []
 test_data = []
 test_target = []
 
-# Determine the global max and min standard scores
+# 정규화를 위해 전체 표준점수 최댓값, 최솟갑 추출
 global_max_score = min(standard_max.values())
 global_min_score = max(standard_min.values())
 
 
-# Function to normalize scores
+# 표준점수 전체 표준점수 최댓값 최솟값 사이 값 같는 normalized_score로 변경하는 함수
 def normalize_score(df, global_min, global_max, decimals=0):
     local_min = df['standard_score'].min()
     local_max = df['standard_score'].max()
     df['normalized_score'] = (df['standard_score'] - local_min) / (local_max - local_min) * (
                 global_max - global_min) + global_min
     df['normalized_score'] = df['normalized_score'].round(decimals)
-    # print(key)
-    # print(df)
-    #여기까지는 값이 정상적
     return df
 
 
-# Normalize each dataframe to the global max and min standard scores
+# normalize_score 함수 적용한 새로운 함수 만듦
 for key in dataframes.keys():
     df = dataframes[key]
     normalized_df = normalize_score(df, global_min_score, global_max_score)
@@ -70,33 +66,31 @@ for key in dataframes.keys():
         'female': 'sum'
     })
 
-    # print(key)
-    # print(grouped_df)
-    ##여기서 값 이상함
-    # Create a DataFrame with all possible normalized_scores in the range
+
+    # 모든 normalized_score를 갖는 새로운 dataframe 생성
     all_scores = pd.DataFrame({'normalized_score': range(global_min_score, global_max_score + 1)})
-    # Merge the grouped_df with all_scores to fill missing scores with 0 values
+    # 비어있는 row를 다 0으로 대체하는 작업
     complete_df = pd.merge(all_scores, grouped_df, on='normalized_score', how='left').fillna(0)
-    # Ensure male and female columns are integers
-    # Ensure male and female columns are integers
+    # int로 변환
     complete_df['male'] = complete_df['male'].astype(str).str.replace(',', '').astype(float).round().astype(int)
     complete_df['female'] = complete_df['female'].astype(str).str.replace(',', '').astype(float).round().astype(int)
 
-    # Update the dataframe in the dictionary
+    # 기존 값을 대체
     dataframes[key] = complete_df
-    # print(key)
-    # print(complete_df)
-#
-# Loop through each year and collect the data
+    # Save to CSV with the name normalized_{key}.csv
+    filename = f'normalized_{key}.csv'
+    complete_df.to_csv(filename, index=False)
+
+# 실제 train을 위한 merge 과정
 for year in range(2017, 2022):
     june_data = dataframes[f'{year}_6']
     september_data = dataframes[f'{year}_9']
     november_data = dataframes[f'{year}_11']
 
-    # Merge June and September data
+
     merged_data = pd.merge(june_data, september_data, on='normalized_score', suffixes=('_june', '_sept'))
 
-    # Split into training and testing sets
+    #  training and testing sets로 나눠주기
     if year == 2021:
         test_data.append(merged_data[['male_june', 'female_june', 'male_sept', 'female_sept']])
         test_target.append(november_data[['male', 'female']])
@@ -104,13 +98,13 @@ for year in range(2017, 2022):
         train_data.append(merged_data[['male_june', 'female_june', 'male_sept', 'female_sept']])
         train_target.append(november_data[['male', 'female']])
 
-# Concatenate all years' data
+
 X_train = pd.concat(train_data)
 y_train = pd.concat(train_target)
 X_test = pd.concat(test_data)
 y_test = pd.concat(test_target)
 
-# Print to verify
+
 print("Training data:")
 print(X_train)
 print(y_train)
@@ -118,14 +112,14 @@ print("Testing data:")
 print(X_test)
 print(y_test)
 
-# Create and train the model
+# 모델 생성
 model = LinearRegression()
 model.fit(X_train, y_train)
 
-# Make predictions
+# 예측
 y_pred = model.predict(X_test)
 
-# Evaluate the model
+# 평가
 mse = mean_squared_error(y_test, y_pred)
 r2 = r2_score(y_test, y_pred)
 
