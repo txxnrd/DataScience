@@ -12,7 +12,7 @@ from train_utils import *
 device = get_device_map()
 print(device)
 
-csv_dir = 'C:\\Users\\user\\Desktop\\고려대\\3학년\\데과\\공모전\\DataScience\\종합\\normalized_score'
+csv_dir = 'DataScience\normalized_score'
 csvs = os.listdir(csv_dir)
 csvs = [os.path.join(csv_dir, filename) for filename in csvs]
 
