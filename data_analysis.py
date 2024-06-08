@@ -7,18 +7,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+import os
+score_directory ="score"
 
-# csv 파일명 저장
-filenames = [
-    "2017_6.csv", "2017_9.csv", "2017_11.csv",
-    "2018_6.csv", "2018_9.csv", "2018_11.csv",
-    "2019_6.csv", "2019_9.csv", "2019_11.csv",
-    "2020_6.csv", "2020_9.csv", "2020_11.csv",
-    "2021_6.csv", "2021_9.csv", "2021_11.csv",
-    "2022_6.csv", "2022_9.csv", "2022_11.csv",
-    "2023_6.csv", "2023_9.csv", "2023_11.csv",
-    "2024_6.csv", "2024_9.csv", "2024_11.csv",
-]
+# score directory 내의 파일명 가져오기
+filenames = os.listdir(score_directory)
+
 
 # df 보관 위해 2017_6 형태로 갖는 dictionary 생성
 dataframes = {} # key 값 2017_6의 형태로 데이터 저장
@@ -27,11 +21,13 @@ standard_min = {} # 각 시험마다 최솟값 저장(정규화에 사용)
 
 # key 값마다 dataframe 저장
 for filename in filenames:
-    var_name = filename.split('.')[0]  # 2017_6 형태로 추출
-    df = pd.read_csv(filename, encoding='utf-8')
-    standard_max[var_name] = df['standard_score'].max()
-    standard_min[var_name] = df['standard_score'].min()
-    dataframes[var_name] = df
+    if filename.endswith('.csv'):  # csv 파일만 처리
+        var_name = filename.split('.')[0]  # 2017_6 형태로 추출
+        file_path = os.path.join(score_directory, filename)  # 파일 경로 생성
+        df = pd.read_csv(file_path, encoding='utf-8')
+        standard_max[var_name] = df['standard_score'].max()
+        standard_min[var_name] = df['standard_score'].min()
+        dataframes[var_name] = df
 
 # train data, test data 추출
 train_data = []
@@ -78,8 +74,10 @@ for key in dataframes.keys():
 
     # 기존 값을 대체
     dataframes[key] = complete_df
+    # 저장할 디렉토리 경로 설정
+    save_directory = "normalized_score"
     # Save to CSV with the name normalized_{key}.csv
-    filename = f'normalized_{key}.csv'
+    filename = os.path.join(save_directory, f'normalized_{key}.csv')
     complete_df.to_csv(filename, index=False)
 
 # 실제 train을 위한 merge 과정
