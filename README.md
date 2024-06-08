@@ -36,5 +36,6 @@
 4. **신경망 (Neural Network)**:
    - PyTorch를 사용하여 두 개의 은닉층과 ReLU 활성화 함수를 가진 신경망 모델을 구현하고 훈련합니다.
 
-5. **다중 퍼셉트론 (Multi Layer Perceptron)
+5. **다중 퍼셉트론 (Multi Layer Perceptron)**:
+  - 분포 간에 존재하는 다양한 잠재 변수들을 모델링 하기 위해, 더 많은 파라미터를 가진 신경망 모델을 훈련합니다.
  
